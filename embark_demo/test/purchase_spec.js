@@ -1,5 +1,6 @@
 /*global artifacts, contract, config, it, assert, web3*/
 const Purchase = artifacts.require('Purchase');
+const BigNumber = require('bignumber.js');
 
 let accounts;
 let buyerAddress;
@@ -43,6 +44,32 @@ contract("Purchase", function () {
     assert.ok(result.length > 0);
   });
 
+    /*
+    Note: Uncomment the following "Seller aborts item" to test this test case and comment out other test cases after that and
+    vice versa, i.e. comment out "Seller aborts item" to not test abort() function and uncomment the other test cases
+    after that.
+    */
+  //   it("Seller aborts item", async function(){
+  //   // test here
+
+  //   let contractSellerAddress = await Purchase.seller();
+  //   assert.ok(contractSellerAddress == sellerAddress);
+ 
+  //   let sellerBalanceOld = await web3.eth.getBalance(contractSellerAddress);
+  //   let contractBalanceOld = await web3.eth.getBalance(Purchase.options.address);
+  //   let contractState = await Purchase.state();
+
+  //   let confirmReceiveTx = await Purchase.methods.abort().send({
+  //     from: sellerAddress
+  //   });
+  //   contractState = await Purchase.state();
+
+  //   let contractBalanceNew = await web3.eth.getBalance(Purchase.options.address);
+  //   // let sellerBalanceNew = await web3.eth.getBalance(contractSellerAddress);
+  //   assert.ok(contractBalanceNew == 0, "Contract balance not updated");
+  //   assert.ok(contractState == state["INACTIVE"]);
+  // })
+
   it("Buyer deposits funds and confirms purchase", async function(){
     let result = await Purchase.methods.confirmPurchase().send({
       from: buyerAddress,
@@ -61,20 +88,28 @@ contract("Purchase", function () {
 
   it("Buyer confirm received", async function(){
     // test here
+    
+    let contractBuyerAddress = await Purchase.buyer();  //  buyer address
+    let contractSellerAddress = await Purchase.seller();  //  seller address
+    /* Check buyer and seller address */
+    assert.ok(contractBuyerAddress == buyerAddress);
+    assert.ok(contractSellerAddress == sellerAddress);
+ 
+    let sellerBalanceOld = await web3.eth.getBalance(contractSellerAddress);  //  Seller's balance before txn.
+    let contractBalanceOld = await web3.eth.getBalance(Purchase.options.address); //  Contract's balance before txn.
+
+    let confirmReceiveTx = await Purchase.methods.confirmReceived().send({
+      from: buyerAddress
+    }); //  calling confirmReceived() function of Purchase.sol contract
+
+    let contractState = await Purchase.state(); //  getting the state 
+    let contractBalanceNew = await web3.eth.getBalance(Purchase.options.address); //  Contract's new balance
+    let sellerBalanceNew = await web3.eth.getBalance(contractSellerAddress);  //  Seller's balance after txn.
+    
+    /*  Checks */
+    assert.ok(contractBalanceNew == 0, "Contract balance not updated");
+    assert.ok((new BigNumber(sellerBalanceNew)).minus(sellerBalanceOld) == price, "Seller price not updatesd");
+    assert.ok((new BigNumber(contractBalanceOld)).minus(contractBalanceNew) == price, "Contract balance not updated");
+    assert.ok(contractState == state["INACTIVE"]);
   })
-
-  it("Seller aborts item", async function(){
-    // test here
-  })
-
-  // it("set storage value", async function () {
-  //   await SimpleStorage.methods.set(150).send({from: web3.eth.defaultAccount});
-  //   let result = await SimpleStorage.methods.get().call();
-  //   assert.strictEqual(parseInt(result, 10), 150);
-  // });
-
-  // it("should have account with balance", async function() {
-  //   let balance = await web3.eth.getBalance(accounts[0]);
-  //   assert.ok(parseInt(balance, 10) > 0);
-  // });
 });
